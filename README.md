@@ -1,36 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 오늘의 한 줄 AI 코치
 
-## Getting Started
+오늘의 상황이나 기분을 **한 줄**로 적으면, AI가 **응원 한 문장**과 **오늘 해볼 작은 행동 한 문장**을 알려 주는 웹 앱입니다. 회사의 2일짜리 AI 역량 강화 교육에서, 기획부터 설계, 개발, 검증, 배포까지 한 바퀴를 직접 돌려 보며 만든 첫 실습 앱입니다.
 
-First, run the development server:
+> 배포 주소: 아래 "배포" 항목을 확인하세요.
+
+## 이렇게 동작합니다
+
+1. 한 줄(최대 200자)을 입력하고 **코칭 받기**를 누릅니다.
+2. 서버가 OpenAI에 요청해 두 문장 코칭과 오늘의 분위기(활력, 차분, 위로, 집중)를 받아 옵니다.
+3. 결과가 분위기에 맞는 이모지와 글씨체로 보입니다.
+4. 마음에 안 들면 **다시 받기**(같은 글로 3번까지)를 누르거나 말투를 바꿉니다.
+
+## 기능
+
+| 구분 | 기능 |
+|---|---|
+| 꼭 필요한 기능 | 한 줄 입력하고 코칭 받기, 결과 보기와 다시 받기 |
+| 있으면 좋은 기능 | 말투 고르기(다정·단호·유머), 오늘의 코칭 모아 보기(최근 5개), AI 모델 고르기(3개), 분위기에 따라 이모지·글씨체 바꾸기 |
+| 안전 | 힘든 상황이면 코칭 대신 전문가나 상담 기관의 도움을 안내합니다. 의료·법률·투자 조언은 하지 않습니다. |
+
+## 만들지 않은 것
+
+로그인과 회원가입, 입력이나 결과의 서버 저장, 문서(PDF) 올리기, AI 이미지 생성, 알림, 결제, 모바일 앱
+
+## 기술
+
+- Next.js 16 (화면과 서버 코드를 한 프로젝트에서 처리), React, TypeScript, Tailwind CSS
+- AI: OpenAI Chat Completions API (서버에서만 호출)
+- 배포: Vercel
+
+## 개인정보와 비용에 관해
+
+- 입력한 한 줄은 코칭을 만들기 위해 **OpenAI(해외 서비스)로 전송**됩니다. 이 앱은 입력과 결과를 저장하지 않습니다. 이름, 연락처, 건강 정보, 회사 내부 정보는 적지 마세요. 자세한 내용은 앱의 `/privacy` 페이지에 있습니다.
+- 공개 주소에서 누구나 쓸 수 있고 사용할 때마다 AI 사용료가 나갑니다. 서버에는 한 사람이 1분에 10번, 하루 전체 300번이라는 제한과 같은 글로 받는 횟수(첫 코칭 1번 + 다시 받기 3번) 제한이 있습니다. 다만 이 제한은 서버 한 대 안에서만 세므로, OpenAI 사이트의 월 사용 한도 설정이 마지막 안전장치입니다.
+
+## 직접 실행해 보기
+
+```bash
+npm install
+```
+
+프로젝트 폴더에 `.env` 파일을 만들고 본인의 OpenAI 키를 넣습니다. 이 파일은 Git에 올라가지 않습니다.
+
+```bash
+OPENAI_API_KEY=여기에_본인_키
+```
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+브라우저에서 `http://127.0.0.1:3000`을 엽니다. 개발 서버는 내 컴퓨터에서만 열리도록 설정되어 있습니다.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 폴더 구조
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+app/
+  page.tsx               화면 전체와 상태
+  components/            입력, 결과, 모아 보기, 모델 고르기, 안내 문구
+  api/coach/route.ts     코칭 API (OpenAI 키는 여기서만 읽음)
+  privacy/page.tsx       입력과 개인정보 안내
+lib/
+  coach.ts               글자 수, 횟수, 모델, 분위기, 문구 등 공통 값
+  guard.ts               속도 제한과 횟수 세기 (서버 전용)
+```
 
-## Learn More
+## 기획 문서
 
-To learn more about Next.js, take a look at the following resources:
+- [PRD.md](PRD.md): 무엇을, 왜 만드는지 (기획서)
+- [PLAN.md](PLAN.md): 어떤 순서로 만들었는지 (계획서)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 알려진 한계
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- "두 문장 이내"는 AI에게 요청만 하고 서버가 문장 수를 직접 검사하지는 않아서, 가끔 세 문장이 나올 수 있습니다.
+- 속도 제한과 횟수 기억은 서버 메모리에만 있어, 서버가 다시 시작되거나 여러 대로 나뉘면 처음부터 다시 셉니다.
+- 보안 헤더와 요청 크기 제한 같은 공개용 보강은 아직 남아 있습니다.
