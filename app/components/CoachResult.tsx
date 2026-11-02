@@ -1,13 +1,28 @@
 // Design Ref: DESIGN §3.1, §3.2 — 입력한 한 줄과 코칭 결과를 한 화면에 함께 보여 준다.
-// Plan: 작업 5 (결과 화면)
+// Plan: 작업 5 (결과 화면), 6 (다시 받기)
+import { ERROR_MESSAGES } from "@/lib/coach";
+
 type Props = {
   /** 사용자가 적은 한 줄 */
   inputText: string;
   /** AI가 만든 코칭 (응원 한 문장 + 작은 행동 한 문장) */
   coaching: string;
+  /** 앞으로 더 받을 수 있는 "다시 받기" 횟수 (0~3) */
+  remainingRetries: number;
+  /** 코칭이 오는 동안 true */
+  loading: boolean;
+  onRetry: () => void;
 };
 
-export default function CoachResult({ inputText, coaching }: Props) {
+export default function CoachResult({
+  inputText,
+  coaching,
+  remainingRetries,
+  loading,
+  onRetry,
+}: Props) {
+  const exhausted = remainingRetries <= 0;
+
   return (
     <section
       aria-label="코칭 결과"
@@ -21,6 +36,20 @@ export default function CoachResult({ inputText, coaching }: Props) {
       <div>
         <p className="text-xs font-bold tracking-[0.15em] text-brand-500">오늘의 코칭</p>
         <p className="mt-1 text-lg leading-8 text-brand-900">{coaching}</p>
+      </div>
+      <div className="flex flex-col items-start gap-2">
+        <button
+          type="button"
+          onClick={onRetry}
+          // 전송 중이거나 횟수를 다 썼으면 누를 수 없다
+          disabled={loading || exhausted}
+          className="rounded-full border border-brand-700 px-6 py-2 text-sm font-bold text-brand-700 transition-colors hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          다시 받기 (남은 횟수 {remainingRetries})
+        </button>
+        {exhausted && (
+          <p className="text-sm text-foreground/60">{ERROR_MESSAGES.TOO_MANY_RETRIES}</p>
+        )}
       </div>
     </section>
   );
