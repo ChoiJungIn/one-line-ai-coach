@@ -2,7 +2,7 @@
 
 // Design Ref: DESIGN §3.1 — 한 페이지(/)에 모든 것을 둔다. 상태는 이 파일이 보관한다.
 // Plan: 작업 1 (기본 화면 틀), 4 (입력), 5 (결과), 6 (다시 받기)
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   DEFAULT_MODEL,
   DEFAULT_TONE,
@@ -45,6 +45,20 @@ export default function Home() {
   const [retryCount, setRetryCount] = useState(0);
   // state는 다음 화면에서야 바뀌므로, 빠른 중복 클릭은 ref로도 막는다
   const busy = useRef(false);
+  // 요청이 끝날 때마다 늘어난다. 이때 결과(또는 안내)가 있는 자리로 화면을 옮긴다.
+  const [finishedCount, setFinishedCount] = useState(0);
+  const outputRef = useRef<HTMLDivElement>(null);
+
+  // 휴대폰처럼 화면이 작으면 결과가 입력칸 아래에 있어 안 보이므로, 요청이 끝나면 그 자리로 부드럽게 옮긴다.
+  // 입력하는 동안 나오는 안내(글자 수 등)에서는 움직이지 않는다.
+  useEffect(() => {
+    if (finishedCount === 0) return;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    outputRef.current?.scrollIntoView({
+      behavior: reduceMotion ? "auto" : "smooth",
+      block: "start",
+    });
+  }, [finishedCount]);
 
   function handleTextChange(value: string) {
     const chars = [...value];
@@ -126,6 +140,7 @@ export default function Home() {
       busy.current = false;
       setLoading(false);
       setWaiting(false);
+      setFinishedCount((n) => n + 1);
     }
   }
 
@@ -194,17 +209,22 @@ export default function Home() {
       {loading && waiting && (
         <StatusMessage kind="wait" message={NOTICE_MESSAGES.WAITING} />
       )}
-      {message && <StatusMessage kind={message.kind} message={message.text} />}
+      {/* 요청이 끝나면 화면이 이 자리로 옮겨 온다 (안내나 오류가 있어도 마찬가지) */}
+      {(message || result) && (
+        <div ref={outputRef} className="flex scroll-mt-4 flex-col gap-6">
+          {message && <StatusMessage kind={message.kind} message={message.text} />}
 
-      {result && (
-        <CoachResult
-          mood={result.mood}
-          inputText={result.inputText}
-          coaching={result.coaching}
-          remainingRetries={MAX_RETRIES - retryCount}
-          loading={loading}
-          onRetry={() => retryWith(result.inputText)}
-        />
+          {result && (
+            <CoachResult
+              mood={result.mood}
+              inputText={result.inputText}
+              coaching={result.coaching}
+              remainingRetries={MAX_RETRIES - retryCount}
+              loading={loading}
+              onRetry={() => retryWith(result.inputText)}
+            />
+          )}
+        </div>
       )}
 
       <CoachHistory entries={history} />
