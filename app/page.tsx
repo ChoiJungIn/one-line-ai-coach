@@ -10,6 +10,7 @@ import {
   MAX_INPUT_LENGTH,
 } from "@/lib/coach";
 import CoachForm from "./components/CoachForm";
+import CoachResult from "./components/CoachResult";
 import StatusMessage, { type StatusKind } from "./components/StatusMessage";
 
 type Message = { kind: StatusKind; text: string };
@@ -18,7 +19,7 @@ export default function Home() {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<Message | null>(null);
-  const [coaching, setCoaching] = useState<string | null>(null);
+  const [result, setResult] = useState<{ inputText: string; coaching: string } | null>(null);
   // state는 다음 화면에서야 바뀌므로, 빠른 중복 클릭은 ref로도 막는다
   const busy = useRef(false);
 
@@ -64,7 +65,7 @@ export default function Home() {
         });
         return;
       }
-      setCoaching(data.coaching);
+      setResult({ inputText: input, coaching: data.coaching });
     } catch {
       setMessage({ kind: "error", text: ERROR_MESSAGES.UPSTREAM_ERROR });
     } finally {
@@ -93,8 +94,7 @@ export default function Home() {
 
       {message && <StatusMessage kind={message.kind} message={message.text} />}
 
-      {/* 결과 화면은 작업 5에서 CoachResult로 바꾼다 */}
-      {coaching && <p className="leading-7">{coaching}</p>}
+      {result && <CoachResult inputText={result.inputText} coaching={result.coaching} />}
     </main>
   );
 }
