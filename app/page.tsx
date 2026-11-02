@@ -11,10 +11,12 @@ import {
   MAX_RETRIES,
   NOTICE_MESSAGES,
   TIMEOUT_MS,
+  isMood,
   WAIT_NOTICE_MS,
   type Tone,
 } from "@/lib/coach";
 import CoachForm from "./components/CoachForm";
+import CoachHistory, { type CoachEntry } from "./components/CoachHistory";
 import CoachResult from "./components/CoachResult";
 import StatusMessage, { type StatusKind } from "./components/StatusMessage";
 
@@ -24,6 +26,9 @@ export default function Home() {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [tone, setTone] = useState<Tone>(DEFAULT_TONE);
+  // 이번에 받은 코칭 기록 (새로고침하면 사라진다)
+  const [history, setHistory] = useState<CoachEntry[]>([]);
+  const nextId = useRef(1);
   // 15초가 넘게 기다리는 중이면 true
   const [waiting, setWaiting] = useState(false);
   const [message, setMessage] = useState<Message | null>(null);
@@ -88,6 +93,17 @@ export default function Home() {
       }
       setResult({ inputText: input, coaching: data.coaching });
       setRetryCount(retry);
+      // 다시 받기로 받은 코칭도 각각 한 개로 모아 둔다 (안전 안내는 위에서 이미 제외됨)
+      setHistory((prev) => [
+        ...prev,
+        {
+          id: nextId.current++,
+          inputText: input,
+          coaching: data.coaching,
+          mood: isMood(data.mood) ? data.mood : null,
+          tone: toneToUse,
+        },
+      ]);
     } catch (e) {
       const timedOut = e instanceof DOMException && e.name === "AbortError";
       setMessage({
@@ -177,6 +193,8 @@ export default function Home() {
           onRetry={() => retryWith(result.inputText)}
         />
       )}
+
+      <CoachHistory entries={history} />
     </main>
   );
 }
