@@ -12,6 +12,7 @@ import {
   NOTICE_MESSAGES,
   TIMEOUT_MS,
   WAIT_NOTICE_MS,
+  type Tone,
 } from "@/lib/coach";
 import CoachForm from "./components/CoachForm";
 import CoachResult from "./components/CoachResult";
@@ -22,6 +23,7 @@ type Message = { kind: StatusKind; text: string };
 export default function Home() {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
+  const [tone, setTone] = useState<Tone>(DEFAULT_TONE);
   // 15초가 넘게 기다리는 중이면 true
   const [waiting, setWaiting] = useState(false);
   const [message, setMessage] = useState<Message | null>(null);
@@ -44,7 +46,7 @@ export default function Home() {
   }
 
   /** 서버에 코칭을 요청한다. retry는 이번이 몇 번째 다시 받기인지 (첫 코칭은 0). */
-  async function requestCoaching(input: string, retry: number) {
+  async function requestCoaching(input: string, retry: number, toneToUse: Tone = tone) {
     if (busy.current) return;
     busy.current = true;
     setLoading(true);
@@ -63,7 +65,7 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           text: input,
-          tone: DEFAULT_TONE,
+          tone: toneToUse,
           model: DEFAULT_MODEL,
           retryCount: retry,
         }),
@@ -110,6 +112,20 @@ export default function Home() {
     requestCoaching(input, retryCount + 1);
   }
 
+  /** 말투를 바꾼다. 첫 결과가 나오기 전에는 선택만 바뀌고, 결과가 있으면 새 말투로 다시 받는다. */
+  function handleToneChange(next: Tone) {
+    if (next === tone || busy.current) return;
+    setTone(next);
+    if (result) {
+      // 말투를 바꾸는 것도 다시 받기로 센다. 횟수를 다 썼으면 버튼이 잠겨 여기에 오지 않는다.
+      if (retryCount >= MAX_RETRIES) {
+        setMessage({ kind: "info", text: ERROR_MESSAGES.TOO_MANY_RETRIES });
+        return;
+      }
+      requestCoaching(result.inputText, retryCount + 1, next);
+    }
+  }
+
   function handleSubmit() {
     if (busy.current) return;
     const input = text.trim();
@@ -142,6 +158,9 @@ export default function Home() {
         onTextChange={handleTextChange}
         onSubmit={handleSubmit}
         loading={loading}
+        tone={tone}
+        onToneChange={handleToneChange}
+        toneLocked={result !== null && retryCount >= MAX_RETRIES}
       />
 
       {loading && waiting && (
