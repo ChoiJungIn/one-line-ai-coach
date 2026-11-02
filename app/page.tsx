@@ -9,6 +9,9 @@ import {
   ERROR_MESSAGES,
   MAX_INPUT_LENGTH,
   MAX_RETRIES,
+  NOTICE_MESSAGES,
+  TIMEOUT_MS,
+  WAIT_NOTICE_MS,
 } from "@/lib/coach";
 import CoachForm from "./components/CoachForm";
 import CoachResult from "./components/CoachResult";
@@ -19,6 +22,8 @@ type Message = { kind: StatusKind; text: string };
 export default function Home() {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
+  // 15초가 넘게 기다리는 중이면 true
+  const [waiting, setWaiting] = useState(false);
   const [message, setMessage] = useState<Message | null>(null);
   const [result, setResult] = useState<{ inputText: string; coaching: string } | null>(null);
   // 같은 입력으로 "다시 받기"를 이미 누른 횟수 (0~3)
@@ -43,7 +48,15 @@ export default function Home() {
     if (busy.current) return;
     busy.current = true;
     setLoading(true);
+    setWaiting(false);
     setMessage(null);
+
+    // 15초가 지나면 대기 안내를 보여 준다
+    const waitTimer = setTimeout(() => setWaiting(true), WAIT_NOTICE_MS);
+    // 서버가 60초에 먼저 끝내지만, 서버가 답이 없는 경우를 대비해 화면에서도 기다리기를 멈춘다
+    const controller = new AbortController();
+    const abortTimer = setTimeout(() => controller.abort(), TIMEOUT_MS + 2000);
+
     try {
       const res = await fetch("/api/coach", {
         method: "POST",
@@ -54,6 +67,7 @@ export default function Home() {
           model: DEFAULT_MODEL,
           retryCount: retry,
         }),
+        signal: controller.signal,
       });
       const data = await res.json();
       if (!res.ok) {
@@ -63,13 +77,27 @@ export default function Home() {
         });
         return;
       }
+      // 힘든 상황이면 코칭 대신 안내 문구가 온다. 결과·다시 받기 없이 안내만 보여 준다.
+      if (data.coaching === NOTICE_MESSAGES.SAFETY) {
+        setResult(null);
+        setRetryCount(0);
+        setMessage({ kind: "safety", text: NOTICE_MESSAGES.SAFETY });
+        return;
+      }
       setResult({ inputText: input, coaching: data.coaching });
       setRetryCount(retry);
-    } catch {
-      setMessage({ kind: "error", text: ERROR_MESSAGES.UPSTREAM_ERROR });
+    } catch (e) {
+      const timedOut = e instanceof DOMException && e.name === "AbortError";
+      setMessage({
+        kind: "error",
+        text: timedOut ? ERROR_MESSAGES.TIMEOUT : ERROR_MESSAGES.UPSTREAM_ERROR,
+      });
     } finally {
+      clearTimeout(waitTimer);
+      clearTimeout(abortTimer);
       busy.current = false;
       setLoading(false);
+      setWaiting(false);
     }
   }
 
@@ -116,6 +144,9 @@ export default function Home() {
         loading={loading}
       />
 
+      {loading && waiting && (
+        <StatusMessage kind="wait" message={NOTICE_MESSAGES.WAITING} />
+      )}
       {message && <StatusMessage kind={message.kind} message={message.text} />}
 
       {result && (
