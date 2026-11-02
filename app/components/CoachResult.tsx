@@ -1,8 +1,19 @@
 // Design Ref: DESIGN §3.1, §3.2 — 입력한 한 줄과 코칭 결과를 한 화면에 함께 보여 준다.
 // Plan: 작업 5 (결과 화면), 6 (다시 받기)
-import { ERROR_MESSAGES } from "@/lib/coach";
+import { ERROR_MESSAGES, getMoodStyle, type Mood } from "@/lib/coach";
+
+// 분위기별 글씨체 (app/layout.tsx에서 불러온 글씨체 변수). 못 고른 경우와 집중은 기본 글씨체.
+const MOOD_FONT: Record<Mood, string> = {
+  활력: "var(--font-black-han-sans)",
+  차분: "var(--font-nanum-myeongjo)",
+  위로: "var(--font-gaegu)",
+  집중: "var(--font-noto-sans-kr)",
+};
+const DEFAULT_FONT = "var(--font-noto-sans-kr)";
 
 type Props = {
+  /** AI가 고른 분위기. 못 골랐으면 null이고 기본 모양을 쓴다. */
+  mood: Mood | null;
   /** 사용자가 적은 한 줄 */
   inputText: string;
   /** AI가 만든 코칭 (응원 한 문장 + 작은 행동 한 문장) */
@@ -15,6 +26,7 @@ type Props = {
 };
 
 export default function CoachResult({
+  mood,
   inputText,
   coaching,
   remainingRetries,
@@ -22,6 +34,7 @@ export default function CoachResult({
   onRetry,
 }: Props) {
   const exhausted = remainingRetries <= 0;
+  const { emoji } = getMoodStyle(mood);
 
   return (
     <section
@@ -34,8 +47,20 @@ export default function CoachResult({
       </div>
       <hr className="border-brand-100" />
       <div>
-        <p className="text-xs font-bold tracking-[0.15em] text-brand-500">오늘의 코칭</p>
-        <p className="mt-1 text-lg leading-8 text-brand-900">{coaching}</p>
+        <p className="text-xs font-bold tracking-[0.15em] text-brand-500">
+          오늘의 코칭{mood ? ` · ${mood}` : ""}
+        </p>
+        {emoji && (
+          <p className="mt-2 text-4xl" aria-hidden="true">
+            {emoji}
+          </p>
+        )}
+        <p
+          className="mt-1 text-xl leading-9 text-brand-900"
+          style={{ fontFamily: mood ? MOOD_FONT[mood] : DEFAULT_FONT }}
+        >
+          {coaching}
+        </p>
       </div>
       <div className="flex flex-col items-start gap-2">
         <button

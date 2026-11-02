@@ -14,6 +14,7 @@ import {
   isMood,
   WAIT_NOTICE_MS,
   type ModelId,
+  type Mood,
   type Tone,
 } from "@/lib/coach";
 import CoachForm from "./components/CoachForm";
@@ -35,7 +36,11 @@ export default function Home() {
   // 15초가 넘게 기다리는 중이면 true
   const [waiting, setWaiting] = useState(false);
   const [message, setMessage] = useState<Message | null>(null);
-  const [result, setResult] = useState<{ inputText: string; coaching: string } | null>(null);
+  const [result, setResult] = useState<{
+    inputText: string;
+    coaching: string;
+    mood: Mood | null;
+  } | null>(null);
   // 같은 입력으로 "다시 받기"를 이미 누른 횟수 (0~3)
   const [retryCount, setRetryCount] = useState(0);
   // state는 다음 화면에서야 바뀌므로, 빠른 중복 클릭은 ref로도 막는다
@@ -94,7 +99,9 @@ export default function Home() {
         setMessage({ kind: "safety", text: NOTICE_MESSAGES.SAFETY });
         return;
       }
-      setResult({ inputText: input, coaching: data.coaching });
+      // 분위기가 이상한 값이면 null로 두고 기본 모양을 쓴다
+      const mood = isMood(data.mood) ? data.mood : null;
+      setResult({ inputText: input, coaching: data.coaching, mood });
       setRetryCount(retry);
       // 다시 받기로 받은 코칭도 각각 한 개로 모아 둔다 (안전 안내는 위에서 이미 제외됨)
       setHistory((prev) => [
@@ -103,7 +110,7 @@ export default function Home() {
           id: nextId.current++,
           inputText: input,
           coaching: data.coaching,
-          mood: isMood(data.mood) ? data.mood : null,
+          mood,
           tone: toneToUse,
         },
       ]);
@@ -191,6 +198,7 @@ export default function Home() {
 
       {result && (
         <CoachResult
+          mood={result.mood}
           inputText={result.inputText}
           coaching={result.coaching}
           remainingRetries={MAX_RETRIES - retryCount}
