@@ -2,6 +2,7 @@
 
 // Design Ref: DESIGN §3.1, §3.4 — 입력칸(200자), 남은 글자 수, "코칭 받기" 버튼
 // Plan: 작업 4 (한 줄 입력 화면)
+import Link from "next/link";
 import { MAX_INPUT_LENGTH, TONES, type ModelId, type Tone } from "@/lib/coach";
 import ModelPicker from "./ModelPicker";
 
@@ -84,6 +85,14 @@ export default function CoachForm({
       >
         {loading ? "코칭을 만들고 있어요…" : "코칭 받기"}
       </button>
+      {/* 입력이 외부(OpenAI)로 전송된다는 점을 미리 알린다 */}
+      <p className="text-xs leading-5 text-foreground/60">
+        입력한 내용은 코칭을 만들기 위해 OpenAI(해외 서비스)로 전송되며, 이 앱은 저장하지 않습니다.
+        이름·연락처·건강 정보·회사 내부 정보는 적지 마세요.{" "}
+        <Link href="/privacy" className="font-medium text-brand-700 underline underline-offset-2">
+          자세히 보기
+        </Link>
+      </p>
     </form>
   );
 }

@@ -90,6 +90,10 @@ export const ERROR_CODES = [
   "TIMEOUT",
   "UPSTREAM_ERROR",
   "CONFIG_ERROR",
+  "RATE_LIMITED",
+  "DAILY_LIMIT",
+  "BAD_REQUEST_TYPE",
+  "FORBIDDEN_ORIGIN",
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
 
@@ -103,7 +107,27 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   TIMEOUT: "시간이 너무 오래 걸려 중단했어요. 다시 시도해 주세요.",
   UPSTREAM_ERROR: "지금은 코칭을 만들 수 없어요. 잠시 후 다시 시도해 주세요.",
   CONFIG_ERROR: "코칭 서비스 설정에 문제가 있어요. 키와 사용 한도를 확인해 주세요.",
+  RATE_LIMITED: "요청이 너무 많아요. 잠시 후 다시 시도해 주세요.",
+  DAILY_LIMIT: "오늘 쓸 수 있는 코칭 횟수를 모두 썼어요. 내일 다시 시도해 주세요.",
+  BAD_REQUEST_TYPE: "요청 형식이 올바르지 않아요.",
+  FORBIDDEN_ORIGIN: "허용되지 않은 곳에서 온 요청이에요.",
 };
+
+// ---------- 서버 보호 (공개 대비) ----------
+// 이 값들은 서버(app/api/coach/route.ts, lib/guard.ts)에서 쓴다.
+
+/** 한 사람(IP)이 이 시간(밀리초) 안에 보낼 수 있는 요청 수를 세는 구간 */
+export const RATE_LIMIT_WINDOW_MS = 60_000;
+/** 위 구간 안에서 한 사람(IP)이 보낼 수 있는 최대 요청 수 */
+export const RATE_LIMIT_PER_WINDOW = 10;
+/** 하루에 OpenAI를 부를 수 있는 전체 횟수 (모든 사람 합계) */
+export const DAILY_CALL_LIMIT = 300;
+/** 같은 사람이 같은 글로 받은 횟수를 기억하는 시간(밀리초) */
+export const RETRY_WINDOW_MS = 60 * 60 * 1000;
+/** OpenAI가 만들 수 있는 답변의 최대 길이(토큰). 긴 답변으로 요금이 늘지 않게 한다. */
+export const MAX_OUTPUT_TOKENS = 400;
+/** 코칭 문장으로 받아들이는 최대 글자 수. 넘으면 오류로 본다. */
+export const MAX_COACH_CHARS = 300;
 
 /** 오류가 아닌 안내 문구 */
 export const NOTICE_MESSAGES = {

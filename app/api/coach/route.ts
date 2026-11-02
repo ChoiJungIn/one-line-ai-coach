@@ -4,7 +4,9 @@ import {
   DEFAULT_MODEL,
   DEFAULT_TONE,
   ERROR_MESSAGES,
+  MAX_COACH_CHARS,
   MAX_INPUT_LENGTH,
+  MAX_OUTPUT_TOKENS,
   MAX_RETRIES,
   NOTICE_MESSAGES,
   TIMEOUT_MS,
@@ -15,6 +17,7 @@ import {
   type Mood,
   type Tone,
 } from "@/lib/coach";
+import { checkDaily, checkRateLimit, checkRetries, getClientIp } from "@/lib/guard";
 
 /** 오류 코드별 HTTP 상태값 */
 const ERROR_STATUS: Record<ErrorCode, number> = {
@@ -26,6 +29,10 @@ const ERROR_STATUS: Record<ErrorCode, number> = {
   TIMEOUT: 504,
   UPSTREAM_ERROR: 502,
   CONFIG_ERROR: 500,
+  RATE_LIMITED: 429,
+  DAILY_LIMIT: 429,
+  BAD_REQUEST_TYPE: 415,
+  FORBIDDEN_ORIGIN: 403,
 };
 
 /** 모든 오류를 같은 모양으로 돌려준다. 키나 OpenAI가 준 원문은 절대 넣지 않는다. */
@@ -65,7 +72,35 @@ function buildSystemPrompt(tone: Tone, retryCount: number) {
     .join("\n");
 }
 
+/**
+ * 우리 화면에서 온 요청인지 확인한다. 다른 사이트가 방문자의 브라우저로 몰래 부르는 것을 막는다.
+ * (브라우저가 아닌 도구는 이 헤더를 마음대로 쓸 수 있으므로, 속도 제한과 하루 상한이 따로 필요하다.)
+ */
+function isSameOrigin(request: Request): boolean {
+  const site = request.headers.get("sec-fetch-site");
+  if (site && site !== "same-origin" && site !== "none") return false;
+
+  const origin = request.headers.get("origin");
+  if (!origin) return true;
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  try {
+    return new URL(origin).host === host;
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(request: Request) {
+  // 1) 요청 형식과 출처 확인 (싸게 확인되는 것부터)
+  if (!isSameOrigin(request)) return errorResponse("FORBIDDEN_ORIGIN");
+  if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {
+    return errorResponse("BAD_REQUEST_TYPE");
+  }
+
+  // 2) 한 사람이 짧은 시간에 너무 많이 보내지 못하게 한다
+  const ip = getClientIp(request);
+  if (!checkRateLimit(ip)) return errorResponse("RATE_LIMITED");
+
   // 서버 키는 .env에서만 읽는다. 값은 어디에도 출력하지 않는다.
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) return errorResponse("CONFIG_ERROR");
@@ -99,6 +134,11 @@ export async function POST(request: Request) {
     return errorResponse("TOO_MANY_RETRIES");
   }
 
+  // 3) 화면이 보낸 retryCount와 상관없이, 같은 사람이 같은 글로 받은 횟수를 서버가 직접 센다
+  if (!checkRetries(ip, text)) return errorResponse("TOO_MANY_RETRIES");
+  // 4) 하루 전체 호출 상한 (마지막 방어선)
+  if (!checkDaily()) return errorResponse("DAILY_LIMIT");
+
   let upstream: Response;
   try {
     upstream = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -113,6 +153,8 @@ export async function POST(request: Request) {
           { role: "system", content: buildSystemPrompt(tone, retryCount) },
           { role: "user", content: text },
         ],
+        // 긴 답변으로 요금이 늘지 않도록 답변 길이에 상한을 둔다
+        max_completion_tokens: MAX_OUTPUT_TOKENS,
       }),
       // 60초가 넘으면 기다리기를 멈춘다
       signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -145,6 +187,7 @@ export async function POST(request: Request) {
     return errorResponse("UPSTREAM_ERROR");
   }
 
-  if (!coaching) return errorResponse("UPSTREAM_ERROR");
+  // 비어 있거나 너무 길면 규칙을 어긴 답변이므로 보여 주지 않는다
+  if (!coaching || [...coaching].length > MAX_COACH_CHARS) return errorResponse("UPSTREAM_ERROR");
   return Response.json({ coaching, mood });
 }
