@@ -1,72 +1,213 @@
-import Image from "next/image";
+"use client";
+
+// Design Ref: DESIGN §3.1 — 한 페이지(/)에 모든 것을 둔다. 상태는 이 파일이 보관한다.
+// Plan: 작업 1 (기본 화면 틀), 4 (입력), 5 (결과), 6 (다시 받기)
+import { useRef, useState } from "react";
+import {
+  DEFAULT_MODEL,
+  DEFAULT_TONE,
+  ERROR_MESSAGES,
+  MAX_INPUT_LENGTH,
+  MAX_RETRIES,
+  NOTICE_MESSAGES,
+  TIMEOUT_MS,
+  isMood,
+  WAIT_NOTICE_MS,
+  type ModelId,
+  type Mood,
+  type Tone,
+} from "@/lib/coach";
+import CoachForm from "./components/CoachForm";
+import CoachHistory, { type CoachEntry } from "./components/CoachHistory";
+import CoachResult from "./components/CoachResult";
+import StatusMessage, { type StatusKind } from "./components/StatusMessage";
+
+type Message = { kind: StatusKind; text: string };
 
 export default function Home() {
+  const [text, setText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [tone, setTone] = useState<Tone>(DEFAULT_TONE);
+  // 처음에는 가장 저렴한 가성비 모델로 시작한다. 모델을 바꿔도 이미 받은 코칭은 그대로다.
+  const [model, setModel] = useState<ModelId>(DEFAULT_MODEL);
+  // 이번에 받은 코칭 기록 (새로고침하면 사라진다)
+  const [history, setHistory] = useState<CoachEntry[]>([]);
+  const nextId = useRef(1);
+  // 15초가 넘게 기다리는 중이면 true
+  const [waiting, setWaiting] = useState(false);
+  const [message, setMessage] = useState<Message | null>(null);
+  const [result, setResult] = useState<{
+    inputText: string;
+    coaching: string;
+    mood: Mood | null;
+  } | null>(null);
+  // 같은 입력으로 "다시 받기"를 이미 누른 횟수 (0~3)
+  const [retryCount, setRetryCount] = useState(0);
+  // state는 다음 화면에서야 바뀌므로, 빠른 중복 클릭은 ref로도 막는다
+  const busy = useRef(false);
+
+  function handleTextChange(value: string) {
+    const chars = [...value];
+    if (chars.length > MAX_INPUT_LENGTH) {
+      // 붙여넣기로 넘기면 앞 200자만 남기고 안내한다
+      setText(chars.slice(0, MAX_INPUT_LENGTH).join(""));
+      setMessage({ kind: "info", text: ERROR_MESSAGES.TOO_LONG });
+      return;
+    }
+    setText(value);
+    setMessage(null);
+  }
+
+  /** 서버에 코칭을 요청한다. retry는 이번이 몇 번째 다시 받기인지 (첫 코칭은 0). */
+  async function requestCoaching(input: string, retry: number, toneToUse: Tone = tone) {
+    if (busy.current) return;
+    busy.current = true;
+    setLoading(true);
+    setWaiting(false);
+    setMessage(null);
+
+    // 15초가 지나면 대기 안내를 보여 준다
+    const waitTimer = setTimeout(() => setWaiting(true), WAIT_NOTICE_MS);
+    // 서버가 60초에 먼저 끝내지만, 서버가 답이 없는 경우를 대비해 화면에서도 기다리기를 멈춘다
+    const controller = new AbortController();
+    const abortTimer = setTimeout(() => controller.abort(), TIMEOUT_MS + 2000);
+
+    try {
+      const res = await fetch("/api/coach", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: input,
+          tone: toneToUse,
+          model,
+          retryCount: retry,
+        }),
+        signal: controller.signal,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage({
+          kind: "error",
+          text: data?.error?.message ?? ERROR_MESSAGES.UPSTREAM_ERROR,
+        });
+        return;
+      }
+      // 힘든 상황이면 코칭 대신 안내 문구가 온다. 결과·다시 받기 없이 안내만 보여 준다.
+      if (data.coaching === NOTICE_MESSAGES.SAFETY) {
+        setResult(null);
+        setRetryCount(0);
+        setMessage({ kind: "safety", text: NOTICE_MESSAGES.SAFETY });
+        return;
+      }
+      // 분위기가 이상한 값이면 null로 두고 기본 모양을 쓴다
+      const mood = isMood(data.mood) ? data.mood : null;
+      setResult({ inputText: input, coaching: data.coaching, mood });
+      setRetryCount(retry);
+      // 다시 받기로 받은 코칭도 각각 한 개로 모아 둔다 (안전 안내는 위에서 이미 제외됨)
+      setHistory((prev) => [
+        ...prev,
+        {
+          id: nextId.current++,
+          inputText: input,
+          coaching: data.coaching,
+          mood,
+          tone: toneToUse,
+        },
+      ]);
+    } catch (e) {
+      const timedOut = e instanceof DOMException && e.name === "AbortError";
+      setMessage({
+        kind: "error",
+        text: timedOut ? ERROR_MESSAGES.TIMEOUT : ERROR_MESSAGES.UPSTREAM_ERROR,
+      });
+    } finally {
+      clearTimeout(waitTimer);
+      clearTimeout(abortTimer);
+      busy.current = false;
+      setLoading(false);
+      setWaiting(false);
+    }
+  }
+
+  /** 같은 입력으로 다시 받기. 횟수를 다 썼으면 안내만 보여 준다. */
+  function retryWith(input: string) {
+    if (retryCount >= MAX_RETRIES) {
+      setMessage({ kind: "info", text: ERROR_MESSAGES.TOO_MANY_RETRIES });
+      return;
+    }
+    requestCoaching(input, retryCount + 1);
+  }
+
+  /** 말투를 바꾼다. 첫 결과가 나오기 전에는 선택만 바뀌고, 결과가 있으면 새 말투로 다시 받는다. */
+  function handleToneChange(next: Tone) {
+    if (next === tone || busy.current) return;
+    setTone(next);
+    if (result) {
+      // 말투를 바꾸는 것도 다시 받기로 센다. 횟수를 다 썼으면 버튼이 잠겨 여기에 오지 않는다.
+      if (retryCount >= MAX_RETRIES) {
+        setMessage({ kind: "info", text: ERROR_MESSAGES.TOO_MANY_RETRIES });
+        return;
+      }
+      requestCoaching(result.inputText, retryCount + 1, next);
+    }
+  }
+
+  function handleSubmit() {
+    if (busy.current) return;
+    const input = text.trim();
+    if (!input) {
+      setMessage({ kind: "error", text: ERROR_MESSAGES.EMPTY_INPUT });
+      return;
+    }
+    // 글 내용이 그대로면 "코칭 받기"를 눌러도 다시 받기로 센다. (횟수 제한을 피하지 못하게)
+    if (result && input === result.inputText) {
+      retryWith(input);
+      return;
+    }
+    // 글 내용이 바뀌었으면 새 입력이므로 횟수가 다시 시작된다
+    requestCoaching(input, 0);
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <h2 className="text-5xl font-bold tracking-tight text-[#153a75] dark:text-zinc-50">
+    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8 sm:py-12 md:max-w-2xl">
+      <header className="text-center">
+        <h1 className="text-3xl font-bold tracking-tight text-brand-700 sm:text-4xl">
           오늘의 한 줄 AI 코치
-        </h2>
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+        </h1>
+        <p className="mt-3 text-base text-foreground/70">
+          오늘의 상황이나 기분을 한 줄로 적어 보세요.
+        </p>
+      </header>
+
+      <CoachForm
+        text={text}
+        onTextChange={handleTextChange}
+        onSubmit={handleSubmit}
+        loading={loading}
+        tone={tone}
+        onToneChange={handleToneChange}
+        toneLocked={result !== null && retryCount >= MAX_RETRIES}
+        model={model}
+        onModelChange={setModel}
+      />
+
+      {loading && waiting && (
+        <StatusMessage kind="wait" message={NOTICE_MESSAGES.WAITING} />
+      )}
+      {message && <StatusMessage kind={message.kind} message={message.text} />}
+
+      {result && (
+        <CoachResult
+          mood={result.mood}
+          inputText={result.inputText}
+          coaching={result.coaching}
+          remainingRetries={MAX_RETRIES - retryCount}
+          loading={loading}
+          onRetry={() => retryWith(result.inputText)}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      )}
+
+      <CoachHistory entries={history} />
+    </main>
   );
 }
