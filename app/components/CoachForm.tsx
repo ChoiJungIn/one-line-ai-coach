@@ -2,7 +2,8 @@
 
 // Design Ref: DESIGN §3.1, §3.4 — 입력칸(200자), 남은 글자 수, "코칭 받기" 버튼
 // Plan: 작업 4 (한 줄 입력 화면)
-import { MAX_INPUT_LENGTH, TONES, type Tone } from "@/lib/coach";
+import { MAX_INPUT_LENGTH, TONES, type ModelId, type Tone } from "@/lib/coach";
+import ModelPicker from "./ModelPicker";
 
 type Props = {
   text: string;
@@ -15,6 +16,9 @@ type Props = {
   onToneChange: (tone: Tone) => void;
   /** 다시 받기 횟수를 다 썼을 때 true. 말투를 바꾸면 다시 받기로 세므로 함께 잠근다. */
   toneLocked: boolean;
+  /** 지금 고른 AI 모델 */
+  model: ModelId;
+  onModelChange: (model: ModelId) => void;
 };
 
 export default function CoachForm({
@@ -25,6 +29,8 @@ export default function CoachForm({
   tone,
   onToneChange,
   toneLocked,
+  model,
+  onModelChange,
 }: Props) {
   const length = [...text].length;
 
@@ -69,6 +75,7 @@ export default function CoachForm({
           </button>
         ))}
       </fieldset>
+      <ModelPicker model={model} onModelChange={onModelChange} disabled={loading} />
       <button
         type="submit"
         // 전송 중에는 눌러도 반응이 없도록 막는다 (요금 중복 방지)

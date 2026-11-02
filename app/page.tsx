@@ -13,6 +13,7 @@ import {
   TIMEOUT_MS,
   isMood,
   WAIT_NOTICE_MS,
+  type ModelId,
   type Tone,
 } from "@/lib/coach";
 import CoachForm from "./components/CoachForm";
@@ -26,6 +27,8 @@ export default function Home() {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [tone, setTone] = useState<Tone>(DEFAULT_TONE);
+  // 처음에는 가장 저렴한 가성비 모델로 시작한다. 모델을 바꿔도 이미 받은 코칭은 그대로다.
+  const [model, setModel] = useState<ModelId>(DEFAULT_MODEL);
   // 이번에 받은 코칭 기록 (새로고침하면 사라진다)
   const [history, setHistory] = useState<CoachEntry[]>([]);
   const nextId = useRef(1);
@@ -71,7 +74,7 @@ export default function Home() {
         body: JSON.stringify({
           text: input,
           tone: toneToUse,
-          model: DEFAULT_MODEL,
+          model,
           retryCount: retry,
         }),
         signal: controller.signal,
@@ -177,6 +180,8 @@ export default function Home() {
         tone={tone}
         onToneChange={handleToneChange}
         toneLocked={result !== null && retryCount >= MAX_RETRIES}
+        model={model}
+        onModelChange={setModel}
       />
 
       {loading && waiting && (
