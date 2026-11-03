@@ -6,6 +6,7 @@
 import { createHash } from "node:crypto";
 import {
   DAILY_CALL_LIMIT,
+  DAILY_PREMIUM_LIMIT,
   MAX_RETRIES,
   RATE_LIMIT_PER_WINDOW,
   RATE_LIMIT_WINDOW_MS,
@@ -19,6 +20,8 @@ type Store = {
   retries: Map<string, { count: number; resetAt: number }>;
   /** 오늘 OpenAI를 부른 전체 횟수 */
   daily: { day: string; count: number };
+  /** 오늘 요금이 더 드는 모델을 부른 전체 횟수 */
+  premium: { day: string; count: number };
 };
 
 // 개발 중 코드가 다시 불러와져도 횟수가 사라지지 않게 전역에 둔다
@@ -27,6 +30,7 @@ const store: Store = (holder.__coachGuard ??= {
   hits: new Map(),
   retries: new Map(),
   daily: { day: "", count: 0 },
+  premium: { day: "", count: 0 },
 });
 
 /** 메모리가 끝없이 늘지 않도록 이 개수를 넘으면 오래된 것을 지운다 */
@@ -90,4 +94,44 @@ export function checkDaily(now = new Date()): boolean {
   if (store.daily.count >= DAILY_CALL_LIMIT) return false;
   store.daily.count += 1;
   return true;
+}
+
+/** 요금이 더 드는 모델의 하루 전체 호출 횟수가 상한을 넘지 않았는지 확인한다. 통과하면 한 번 센다. */
+export function checkPremiumDaily(now = new Date()): boolean {
+  const day = now.toLocaleDateString("sv-SE");
+  if (store.premium.day !== day) store.premium = { day, count: 0 };
+  if (store.premium.count >= DAILY_PREMIUM_LIMIT) return false;
+  store.premium.count += 1;
+  return true;
+}
+
+/**
+ * 요청 본문을 최대 maxBytes까지만 읽는다. 넘으면 읽기를 멈추고 null을 돌려준다.
+ * (content-length 헤더는 속일 수 있어서, 실제로 읽은 크기를 센다.)
+ */
+export async function readBodyLimited(request: Request, maxBytes: number): Promise<string | null> {
+  const declared = Number(request.headers.get("content-length") ?? 0);
+  if (Number.isFinite(declared) && declared > maxBytes) return null;
+  if (!request.body) return "";
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(merged);
 }

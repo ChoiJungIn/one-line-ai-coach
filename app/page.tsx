@@ -108,7 +108,8 @@ export default function Home() {
         return;
       }
       // 힘든 상황이면 코칭 대신 안내 문구가 온다. 결과·다시 받기 없이 안내만 보여 준다.
-      if (data.coaching === NOTICE_MESSAGES.SAFETY) {
+      // 서버가 보내 주는 safety 표시로 구분한다. (예전처럼 문구가 같은지도 함께 본다)
+      if (data.safety === true || data.coaching === NOTICE_MESSAGES.SAFETY) {
         setResult(null);
         setRetryCount(0);
         setMessage({ kind: "safety", text: NOTICE_MESSAGES.SAFETY });

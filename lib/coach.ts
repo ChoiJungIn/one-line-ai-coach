@@ -21,7 +21,7 @@ export const TIMEOUT_MS = 60_000;
 
 // ---------- 말투 ----------
 
-export const TONES = ["다정", "단호", "유머"] as const;
+export const TONES = ["다정", "단호", "유머", "뜬금"] as const;
 export type Tone = (typeof TONES)[number];
 export const DEFAULT_TONE: Tone = "다정";
 
@@ -40,6 +40,13 @@ export type ModelId = (typeof MODELS)[number]["id"];
 
 /** 처음에는 가장 저렴한 가성비 모델로 시작한다 */
 export const DEFAULT_MODEL: ModelId = "gpt-4o-mini";
+
+/** 요금이 더 드는 모델. 하루에 부를 수 있는 횟수를 따로 제한한다. */
+export const PREMIUM_MODELS: readonly ModelId[] = ["gpt-6-astra", "gpt-6.1-sol"];
+
+export function isPremiumModel(model: ModelId): boolean {
+  return PREMIUM_MODELS.includes(model);
+}
 
 /** 서버가 받은 모델 이름이 허용 목록에 있는지 확인할 때 쓴다 */
 export function isModelId(value: unknown): value is ModelId {
@@ -121,6 +128,8 @@ export const ERROR_CODES = [
   "DAILY_LIMIT",
   "BAD_REQUEST_TYPE",
   "FORBIDDEN_ORIGIN",
+  "PAYLOAD_TOO_LARGE",
+  "PREMIUM_LIMIT",
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
 
@@ -133,11 +142,14 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   TOO_MANY_RETRIES: "더 받으려면 새로 입력해 주세요.",
   TIMEOUT: "시간이 너무 오래 걸려 중단했어요. 다시 시도해 주세요.",
   UPSTREAM_ERROR: "지금은 코칭을 만들 수 없어요. 잠시 후 다시 시도해 주세요.",
-  CONFIG_ERROR: "코칭 서비스 설정에 문제가 있어요. 키와 사용 한도를 확인해 주세요.",
+  // 공개 사이트에서는 키나 사용 한도 같은 운영 상태가 드러나지 않게 같은 문구를 쓴다. 실제 원인은 서버 기록에만 남긴다.
+  CONFIG_ERROR: "지금은 코칭을 만들 수 없어요. 잠시 후 다시 시도해 주세요.",
   RATE_LIMITED: "요청이 너무 많아요. 잠시 후 다시 시도해 주세요.",
   DAILY_LIMIT: "오늘 쓸 수 있는 코칭 횟수를 모두 썼어요. 내일 다시 시도해 주세요.",
   BAD_REQUEST_TYPE: "요청 형식이 올바르지 않아요.",
   FORBIDDEN_ORIGIN: "허용되지 않은 곳에서 온 요청이에요.",
+  PAYLOAD_TOO_LARGE: "보낸 내용이 너무 커요. 한 줄만 짧게 적어 주세요.",
+  PREMIUM_LIMIT: "오늘 이 모델을 쓸 수 있는 횟수를 모두 썼어요. 가성비 모델을 골라 보세요.",
 };
 
 // ---------- 서버 보호 (공개 대비) ----------
@@ -155,6 +167,10 @@ export const RETRY_WINDOW_MS = 60 * 60 * 1000;
 export const MAX_OUTPUT_TOKENS = 400;
 /** 코칭 문장으로 받아들이는 최대 글자 수. 넘으면 오류로 본다. */
 export const MAX_COACH_CHARS = 300;
+/** 서버가 받아들이는 요청 본문의 최대 크기(바이트). 한 줄 입력에는 충분히 크다. */
+export const MAX_BODY_BYTES = 4096;
+/** 요금이 더 드는 모델을 하루에 부를 수 있는 전체 횟수 */
+export const DAILY_PREMIUM_LIMIT = 30;
 
 /** 오류가 아닌 안내 문구 */
 export const NOTICE_MESSAGES = {
