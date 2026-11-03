@@ -52,13 +52,7 @@ export default function CoachResult({
         <p className="text-xs font-bold tracking-[0.15em] text-brand-500">
           오늘의 코칭{mood ? ` · ${mood}` : ""}
         </p>
-        <Kitten
-          coat={kitten.coat}
-          face={kitten.face}
-          size={104}
-          label={kitten.name}
-          className="kitten-bob mt-2"
-        />
+        <Kitten spec={kitten} size={104} label={kitten.name} className="kitten-bob mt-2" />
         <p
           className="mt-1 text-xl leading-9 text-brand-900"
           style={{ fontFamily: mood ? MOOD_FONT[mood] : DEFAULT_FONT }}
