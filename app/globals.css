@@ -30,3 +30,52 @@ body {
   /* 한글이 단어 중간에서 줄바꿈되지 않게 한다 */
   word-break: keep-all;
 }
+
+/* 배경 장식: 아주 옅은 고양이 발자국이 화면 전체에 깔린다 (글씨를 가리지 않도록 뒤에 두고 클릭도 통과시킨다) */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Cg fill='%23153a75' opacity='0.07'%3E%3Cg transform='translate(36 48) rotate(-20)'%3E%3Cellipse cx='0' cy='6' rx='9' ry='7'/%3E%3Cellipse cx='-10' cy='-6' rx='3.6' ry='4.6'/%3E%3Cellipse cx='-3.5' cy='-12' rx='3.6' ry='4.6'/%3E%3Cellipse cx='3.5' cy='-12' rx='3.6' ry='4.6'/%3E%3Cellipse cx='10' cy='-6' rx='3.6' ry='4.6'/%3E%3C/g%3E%3Cg transform='translate(140 138) rotate(15)'%3E%3Cellipse cx='0' cy='6' rx='9' ry='7'/%3E%3Cellipse cx='-10' cy='-6' rx='3.6' ry='4.6'/%3E%3Cellipse cx='-3.5' cy='-12' rx='3.6' ry='4.6'/%3E%3Cellipse cx='3.5' cy='-12' rx='3.6' ry='4.6'/%3E%3Cellipse cx='10' cy='-6' rx='3.6' ry='4.6'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  background-size: 200px 200px;
+}
+
+/* 고양이가 살짝 위아래로 들썩이는 움직임 */
+@keyframes kitten-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.kitten-bob {
+  animation: kitten-bob 2.8s ease-in-out infinite;
+}
+
+/* 털실 공이 굴러갔다 돌아오는 움직임 */
+@keyframes yarn-roll {
+  0%,
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  50% {
+    transform: translateX(26px) rotate(360deg);
+  }
+}
+
+.yarn-roll {
+  animation: yarn-roll 1.8s ease-in-out infinite;
+}
+
+/* 움직임 줄이기를 켠 사용자에게는 움직이지 않는다 */
+@media (prefers-reduced-motion: reduce) {
+  .kitten-bob,
+  .yarn-roll {
+    animation: none;
+  }
+}

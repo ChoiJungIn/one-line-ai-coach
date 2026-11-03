@@ -79,6 +79,33 @@ export function getMoodStyle(mood: unknown): MoodStyle {
   return isMood(mood) ? MOOD_STYLES[mood] : DEFAULT_MOOD_STYLE;
 }
 
+// ---------- 아기 고양이 그림 ----------
+// 고양이는 AI가 그리지 않고, app/components/Kitten.tsx에 직접 그려 둔 그림을 쓴다. (요금이 들지 않는다)
+
+export type KittenCoat = "orange" | "gray" | "white" | "black";
+export type KittenFace = "happy" | "sleepy" | "love" | "curious";
+
+export type KittenLook = { coat: KittenCoat; face: KittenFace; name: string };
+
+/** 분위기마다 나오는 아기 고양이 */
+export const MOOD_KITTENS: Record<Mood, KittenLook> = {
+  활력: { coat: "orange", face: "happy", name: "신나는 주황 아기 고양이" },
+  차분: { coat: "gray", face: "sleepy", name: "꾸벅꾸벅 졸린 회색 아기 고양이" },
+  위로: { coat: "white", face: "love", name: "하트를 든 하얀 아기 고양이" },
+  집중: { coat: "black", face: "curious", name: "눈이 반짝이는 검은 아기 고양이" },
+};
+
+/** 분위기를 고르지 못했을 때 나오는 아기 고양이 */
+export const DEFAULT_KITTEN: KittenLook = {
+  coat: "white",
+  face: "curious",
+  name: "호기심 많은 하얀 아기 고양이",
+};
+
+export function getMoodKitten(mood: unknown): KittenLook {
+  return isMood(mood) ? MOOD_KITTENS[mood] : DEFAULT_KITTEN;
+}
+
 // ---------- 오류 코드와 안내 문구 ----------
 
 export const ERROR_CODES = [

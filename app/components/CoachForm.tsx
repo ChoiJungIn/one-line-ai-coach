@@ -4,6 +4,7 @@
 // Plan: 작업 4 (한 줄 입력 화면)
 import Link from "next/link";
 import { MAX_INPUT_LENGTH, TONES, type ModelId, type Tone } from "@/lib/coach";
+import { LoadingKitten } from "./KittenScenes";
 import ModelPicker from "./ModelPicker";
 
 type Props = {
@@ -85,6 +86,8 @@ export default function CoachForm({
       >
         {loading ? "코칭을 만들고 있어요…" : "코칭 받기"}
       </button>
+      {/* 코칭을 기다리는 동안 버튼 바로 아래에서 아기 고양이가 털실을 굴린다 (작은 화면에서도 보이도록) */}
+      {loading && <LoadingKitten />}
       {/* 입력이 외부(OpenAI)로 전송된다는 점을 미리 알린다 */}
       <p className="text-xs leading-5 text-foreground/60">
         입력한 내용은 코칭을 만들기 위해 OpenAI(해외 서비스)로 전송되며, 이 앱은 저장하지 않습니다.

@@ -20,6 +20,7 @@ import {
 import CoachForm from "./components/CoachForm";
 import CoachHistory, { type CoachEntry } from "./components/CoachHistory";
 import CoachResult from "./components/CoachResult";
+import { KittenFooter, KittenHero } from "./components/KittenScenes";
 import StatusMessage, { type StatusKind } from "./components/StatusMessage";
 
 type Message = { kind: StatusKind; text: string };
@@ -185,7 +186,8 @@ export default function Home() {
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8 sm:py-12 md:max-w-2xl">
-      <header className="text-center">
+      <header className="flex flex-col items-center gap-4 text-center">
+        <KittenHero />
         <h1 className="text-3xl font-bold tracking-tight text-brand-700 sm:text-4xl">
           오늘의 한 줄 AI 코치
         </h1>
@@ -228,6 +230,8 @@ export default function Home() {
       )}
 
       <CoachHistory entries={history} />
+
+      <KittenFooter />
     </main>
   );
 }
