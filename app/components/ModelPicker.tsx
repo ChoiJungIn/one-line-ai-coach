@@ -14,7 +14,7 @@ type Props = {
 export default function ModelPicker({ model, onModelChange, disabled }: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const current = MODELS.find((m) => m.id === model) ?? MODELS[2];
+  const current = MODELS.find((m) => m.id === model) ?? MODELS[MODELS.length - 1];
 
   // 목록 바깥을 누르거나 Esc를 누르면 닫는다
   useEffect(() => {

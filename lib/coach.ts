@@ -32,7 +32,6 @@ export function isTone(value: unknown): value is Tone {
 // ---------- AI 모델 ----------
 
 export const MODELS = [
-  { id: "gpt-6-astra", label: "좋은 것", note: "가장 똑똑하지만 비쌈" },
   { id: "gpt-6.1-sol", label: "중간", note: "균형 잡힌 선택" },
   { id: "gpt-4o-mini", label: "가성비", note: "가장 쌈" },
 ] as const;
@@ -42,7 +41,7 @@ export type ModelId = (typeof MODELS)[number]["id"];
 export const DEFAULT_MODEL: ModelId = "gpt-4o-mini";
 
 /** 요금이 더 드는 모델. 하루에 부를 수 있는 횟수를 따로 제한한다. */
-export const PREMIUM_MODELS: readonly ModelId[] = ["gpt-6-astra", "gpt-6.1-sol"];
+export const PREMIUM_MODELS: readonly ModelId[] = ["gpt-6.1-sol"];
 
 export function isPremiumModel(model: ModelId): boolean {
   return PREMIUM_MODELS.includes(model);
